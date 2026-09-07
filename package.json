@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "preview": "vite preview",
-    "pdf:sample": "node scripts/generate-sample-plan-pdf.mjs",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },
   "dependencies": {
@@ -17,7 +16,6 @@
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/supabase-js": "^2.112.3",
     "@vitejs/plugin-react": "5.0.4",
-    "pdfkit": "^0.17.2",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "stripe": "^22.5.0",
