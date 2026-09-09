@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, CaretRight, Check, CheckCircle, Copy, CreditCard, Cube, EnvelopeSimple, FileText, Heart, House, Link, List, LockKey, MusicNotes, PencilSimple, SealCheck, ShieldCheck, Sparkle, Tag, Trash, UserPlus, UsersThree, WarningCircle, X } from "@phosphor-icons/react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowSquareOut, CaretRight, Check, CheckCircle, Copy, CreditCard, Cube, EnvelopeSimple, Eye, FileText, Heart, House, Link, List, LockKey, MusicNotes, PencilSimple, SealCheck, ShieldCheck, Sparkle, Tag, Trash, UserPlus, UsersThree, WarningCircle, X } from "@phosphor-icons/react";
 import { acceptInvite, completeEmailConfirmation, createAccount, createInvite, currentUser, deleteAccount, getAccessSummary, getEntitlement, getPaymentConfiguration, isLiveBackend, loadCloudPlan, loadPlan, loadSharedPlan, openBillingPortal, persistPlan, resendConfirmation, revokeAccess, signIn, startCheckout } from "./lib/supabase.js";
 import { productAreas, planSteps } from "./content/product.js";
 import { calculateProgress, containsSensitiveSecret, getBlockStatus, markBlockSorted, normalizePlan, updateBlockAnswer } from "./domain/plan.js";
