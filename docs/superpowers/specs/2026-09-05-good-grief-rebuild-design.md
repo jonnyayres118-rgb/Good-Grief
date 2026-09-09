@@ -16,7 +16,7 @@ The intended emotional progression is: “I’ve been meaning to do this.” →
 - Replace the single ten-step funeral planner with a five-area progress dashboard.
 - Make My send-off fully editable and persist it through the existing `funeral_plans.answers` JSONB record.
 - Give the other four areas useful first-pass editors and persist their answers through the same extensible record, without adding risky secret/password storage.
-- Preserve Stripe annual/lifetime checkout, billing, PDF and paid sharing.
+- Preserve Stripe annual/lifetime checkout, billing and paid sharing. Keep the living in-app plan as the single source of truth; do not offer PDF export.
 - Extend trusted-person sharing with category-level permissions while keeping access explicit and read-only.
 - Add clear privacy, account deletion and data deletion paths without exposing service-role credentials.
 - Produce a reviewable preview; do not change the production domain.
@@ -47,4 +47,3 @@ Use warm pink, acid lime, clear sky blue, warm cream, black and white with acces
 ## Testing and release
 
 Add behavior tests for legacy-plan normalization, progress calculation, permission filtering and sensitive-input guardrails before implementation. Preserve and run the existing Sites packaging tests. Run the production build and create a preview deployment only; production remains untouched.
-

@@ -25,6 +25,8 @@ When implementing from a selected generated mock, treat that image as the source
 - The paid experience must feel like a member product, not a long form: use a Plan Board of twenty visible building blocks, explicit Draft and Sorted states, meaningful area badges, a living in-app summary, and visible membership/billing controls.
 - Good Grief stays the single living source of truth. Do not offer PDF downloads or other static plan exports; trusted people receive controlled access to selected live areas.
 - New visitors must be able to open and draft in the planner before creating an account. Require authentication only for cross-device saving, payment and sharing; never put the product itself behind an email-confirmation wall.
+- Unpaid drafts save only in that browser. Payment is what secures the draft to the private account, enables cross-device sync and unlocks up to three pending or accepted trusted-person invitations.
+- Invitation recipients may create their own free browser-saved draft after viewing a shared plan; they pay only when they choose to secure and share their own plan.
 - Supabase confirmation must always return to `/auth/callback` on the current Good Grief origin. The callback, expired-link recovery and confirmation email must use the Good Grief visual identity and provide resend plus continue-drafting routes.
 - Until Stripe is connected, pricing actions must disclose that checkout is unavailable before asking someone to create an account.
 

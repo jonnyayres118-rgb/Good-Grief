@@ -1,5 +1,7 @@
 import { authenticate, bodyOf, getAdmin, hashInviteToken, isPaidProfile, makeInviteToken, requestOrigin, send } from "../server/services.js";
 import { sanitizePermissions } from "../server/accessPermissions.js";
+import { inviteCapacity } from "../server/commercialRules.js";
+import { sendInviteEmail } from "../server/inviteEmail.js";
 
 async function accessSummary(admin, user) {
   const [{ data: outgoing, error: outgoingError }, { data: incoming, error: incomingError }] = await Promise.all([
@@ -13,9 +15,13 @@ async function accessSummary(admin, user) {
     ? await admin.from("profiles").select("user_id,full_name,email").in("user_id", ownerIds)
     : { data: [] };
   const ownerMap = Object.fromEntries((owners || []).map(owner => [owner.user_id, owner]));
+  const capacity = inviteCapacity((outgoing || []).length);
   return {
     peopleWithAccess: outgoing || [],
     plansSharedWithMe: (incoming || []).map(item => ({ ...item, owner: ownerMap[item.owner_user_id] || null })),
+    inviteLimit: capacity.limit,
+    activeInviteCount: capacity.active,
+    invitesRemaining: capacity.remaining,
   };
 }
 
@@ -46,6 +52,16 @@ export default async function handler(req, res) {
     if (!permissions.length) return send(res, 400, { error: "Choose at least one area to share." });
     const { data: existing } = await admin.from("plan_access").select("id,status").eq("owner_user_id", user.id).eq("invited_email", invitedEmail).maybeSingle();
     if (existing?.status === "accepted") return send(res, 409, { error: "This person already has access." });
+    const { count: activeInviteCount, error: countError } = await admin
+      .from("plan_access")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_user_id", user.id)
+      .in("status", ["pending", "accepted"]);
+    if (countError) throw countError;
+    const capacity = inviteCapacity(activeInviteCount || 0);
+    if (!capacity.available && existing?.status !== "pending") {
+      return send(res, 409, { error: "You already have three trusted people. Revoke one invitation before adding another." });
+    }
 
     const token = makeInviteToken();
     const record = {
@@ -63,7 +79,21 @@ export default async function handler(req, res) {
       : admin.from("plan_access").insert(record).select("id,status,invited_email,permissions,created_at").single();
     const { data: invite, error } = await query;
     if (error) throw error;
-    return send(res, 200, { invite, inviteUrl: `${requestOrigin(req)}/shared/${token}` });
+    const inviteUrl = `${requestOrigin(req)}/shared/${token}`;
+    const { data: owner } = await admin.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+    const delivery = await sendInviteEmail({
+      to: invitedEmail,
+      ownerName: owner?.full_name || user.user_metadata?.full_name || "Someone you trust",
+      inviteUrl,
+      inviteId: invite.id,
+    });
+    if (delivery.sent) {
+      await admin.from("plan_access").update({
+        invitation_sent_at: new Date().toISOString(),
+        email_message_id: delivery.messageId,
+      }).eq("id", invite.id);
+    }
+    return send(res, 200, { invite, inviteUrl, delivery });
   } catch (error) {
     console.error("invites", error);
     return send(res, 500, { error: error.message || "Unable to manage access." });

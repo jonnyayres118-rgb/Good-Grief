@@ -18,7 +18,7 @@ The old localhost email cannot be repaired. After redeploying, request a fresh c
 
 ## Remove the wall before launch
 
-This version deliberately allows anyone to open the planner and create a local draft without registering. An account is requested only when they want cloud saving, payment, the designed PDF or trusted-person sharing.
+This version deliberately allows anyone to open the planner and create a local draft without registering. An account and payment are requested only when they choose to secure that draft in private cloud storage and unlock trusted-person sharing.
 
 ## Stripe can come next
 
@@ -33,3 +33,10 @@ When ready:
 5. Add the keys and IDs listed in `.env.example` to Vercel.
 6. Add the webhook URL `https://www.getgoodgrief.co.uk/api/stripe-webhook` and its required events from `INTEGRATIONS.md`.
 7. Redeploy, then run a test purchase before switching to live keys.
+
+## Connect invitation email
+
+1. Add Resend through the Vercel Marketplace or create a Resend API key.
+2. Verify `getgoodgrief.co.uk` and its SPF/DKIM records in Resend.
+3. Add `RESEND_API_KEY` and `GOOD_GRIEF_EMAIL_FROM` to Preview and Production in Vercel.
+4. Create a test invitation and confirm both delivery and the private-link fallback.

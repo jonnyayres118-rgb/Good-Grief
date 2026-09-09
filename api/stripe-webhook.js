@@ -1,4 +1,5 @@
 import { getAdmin, getStripe, rawBody, send } from "../server/services.js";
+import { beginStripeEvent, completeStripeEvent, failStripeEvent, periodEndFromInvoice } from "../server/stripeEvents.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -26,10 +27,14 @@ async function activateCheckout(session) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return send(res, 405, { error: "Method not allowed" });
+  let event;
+  let admin;
   try {
     const payload = await rawBody(req);
     const signature = req.headers["stripe-signature"];
-    const event = getStripe().webhooks.constructEvent(payload, signature, process.env.STRIPE_WEBHOOK_SECRET);
+    event = getStripe().webhooks.constructEvent(payload, signature, process.env.STRIPE_WEBHOOK_SECRET);
+    admin = getAdmin();
+    if (!await beginStripeEvent(admin, event)) return send(res, 200, { received: true, duplicate: true });
     if (["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type)) {
       await activateCheckout(event.data.object);
     }
@@ -37,7 +42,10 @@ export default async function handler(req, res) {
       const invoice = event.data.object;
       const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
       if (customerId) {
-        const { error } = await getAdmin().from("profiles").update({ payment_status: "active", updated_at: new Date().toISOString() }).eq("stripe_customer_id", customerId);
+        const update = { payment_status: "active", updated_at: new Date().toISOString() };
+        const periodEnd = periodEndFromInvoice(invoice);
+        if (periodEnd) update.current_period_end = periodEnd;
+        const { error } = await admin.from("profiles").update(update).eq("stripe_customer_id", customerId);
         if (error) throw error;
       }
     }
@@ -45,17 +53,19 @@ export default async function handler(req, res) {
       const invoice = event.data.object;
       const customerId = typeof invoice.customer === "string" ? invoice.customer : invoice.customer?.id;
       if (customerId) {
-        const { error } = await getAdmin().from("profiles").update({ payment_status: "past_due", updated_at: new Date().toISOString() }).eq("stripe_customer_id", customerId);
+        const { error } = await admin.from("profiles").update({ payment_status: "past_due", updated_at: new Date().toISOString() }).eq("stripe_customer_id", customerId);
         if (error) throw error;
       }
     }
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object;
-      const { error } = await getAdmin().from("profiles").update({ payment_status: "cancelled", updated_at: new Date().toISOString() }).eq("stripe_subscription_id", subscription.id);
+      const { error } = await admin.from("profiles").update({ payment_status: "cancelled", updated_at: new Date().toISOString() }).eq("stripe_subscription_id", subscription.id);
       if (error) throw error;
     }
+    await completeStripeEvent(admin, event.id);
     return send(res, 200, { received: true });
   } catch (error) {
+    if (admin && event?.id) await failStripeEvent(admin, event.id, error).catch(() => {});
     console.error("stripe webhook", error);
     return send(res, 400, { error: `Webhook error: ${error.message}` });
   }

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { inviteCapacity, storageMode } from "../../server/commercialRules.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -15,33 +16,27 @@ function readLocal(key, fallback) {
   catch { return fallback; }
 }
 
-async function captureLead({ name, email, plan, consent }) {
-  const endpoint = import.meta.env.VITE_LEAD_CAPTURE_ENDPOINT;
-  if (!endpoint) return;
-  await fetch(endpoint, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ name, email, membership_type: plan, marketing_consent: consent, account_date: new Date().toISOString() }),
-  });
-}
-
 export async function createAccount({ name, email, password, plan, consent }) {
   if (!supabase) {
     const demoUser = { id: makeId(), name, email: email.toLowerCase(), plan };
     localStorage.setItem("gg-user", JSON.stringify(demoUser));
-    await captureLead({ name, email, plan, consent }).catch(() => {});
     return { user: demoUser, demo: true, requiresConfirmation: false };
   }
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { full_name: name, selected_plan: plan },
+      data: {
+        full_name: name,
+        selected_plan: plan,
+        marketing_email_consent: Boolean(consent),
+        marketing_consent_at: consent ? new Date().toISOString() : null,
+        marketing_consent_source: "account_signup",
+      },
       emailRedirectTo: `${window.location.origin}/auth/callback`,
     },
   });
   if (error) throw error;
-  await captureLead({ name, email, plan, consent }).catch(() => {});
   return { user: data.user, demo: false, requiresConfirmation: !data.session };
 }
 
@@ -106,33 +101,25 @@ async function apiFetch(path, options = {}) {
   return payload;
 }
 
-export async function persistPlan(plan) {
+export async function persistPlan(plan, { paid = false } = {}) {
   localStorage.setItem("gg-plan", JSON.stringify(plan));
-  if (!supabase) return { demo: true };
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id;
-  if (!userId) return { demo: true };
-  const { error } = await supabase.from("funeral_plans").upsert(
-    { user_id: userId, answers: plan, updated_at: new Date().toISOString() },
-    { onConflict: "user_id" },
-  );
-  if (error) throw error;
-  return { demo: false };
+  if (storageMode({ backendConnected: Boolean(supabase), paid }) === "device") {
+    return { storage: "device", demo: !supabase };
+  }
+  return apiFetch("/api/plan", { method: "PUT", body: JSON.stringify({ answers: plan }) });
 }
 
 export function loadPlan() {
   return readLocal("gg-plan", {});
 }
 
-export async function loadCloudPlan() {
-  if (!supabase) return loadPlan();
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user?.id;
-  if (!userId) return loadPlan();
-  const { data, error } = await supabase.from("funeral_plans").select("answers,updated_at").eq("user_id", userId).maybeSingle();
-  if (error) throw error;
-  if (data?.answers) localStorage.setItem("gg-plan", JSON.stringify(data.answers));
-  return { answers: data?.answers || loadPlan(), updatedAt: data?.updated_at || null };
+export async function loadCloudPlan({ paid = false } = {}) {
+  if (storageMode({ backendConnected: Boolean(supabase), paid }) === "device") {
+    return { answers: loadPlan(), updatedAt: null, storage: "device" };
+  }
+  const data = await apiFetch("/api/plan");
+  if (data?.answers && Object.keys(data.answers).length) localStorage.setItem("gg-plan", JSON.stringify(data.answers));
+  return { answers: Object.keys(data?.answers || {}).length ? data.answers : loadPlan(), updatedAt: data?.updatedAt || null, storage: "secure" };
 }
 
 export async function getEntitlement() {
@@ -188,17 +175,25 @@ export async function createInvite(email, answers, permissions) {
     const token = makeId().replace(/-/g, "").slice(0, 20);
     const invite = { id: makeId(), invited_email: email.toLowerCase(), status: "pending", permissions, created_at: new Date().toISOString(), token };
     const access = readLocal("gg-access", []);
+    const existing = access.find(item => item.invited_email === invite.invited_email);
+    if (!inviteCapacity(access.filter(item => item.status !== "revoked").length).available && !existing) {
+      throw new Error("You already have three trusted people. Revoke one invitation before adding another.");
+    }
     localStorage.setItem("gg-access", JSON.stringify([invite, ...access.filter(item => item.invited_email !== invite.invited_email)]));
     const shares = readLocal("gg-shares", {});
     shares[token] = { answers: Object.fromEntries(permissions.map(key => [key, answers[key]])), invitedEmail: invite.invited_email, ownerName: readLocal("gg-user", {}).name || "Someone you trust", createdAt: invite.created_at };
     localStorage.setItem("gg-shares", JSON.stringify(shares));
-    return { invite, inviteUrl: `${window.location.origin}/shared/${token}`, demo: true };
+    return { invite, inviteUrl: `${window.location.origin}/shared/${token}`, delivery: { sent: false, reason: "preview" }, demo: true };
   }
   return apiFetch("/api/invites", { method: "POST", body: JSON.stringify({ email, permissions }) });
 }
 
 export async function getAccessSummary() {
-  if (!supabase) return { peopleWithAccess: readLocal("gg-access", []), plansSharedWithMe: readLocal("gg-incoming", []) };
+  if (!supabase) {
+    const peopleWithAccess = readLocal("gg-access", []).filter(item => item.status !== "revoked");
+    const capacity = inviteCapacity(peopleWithAccess.length);
+    return { peopleWithAccess, plansSharedWithMe: readLocal("gg-incoming", []), inviteLimit: capacity.limit, activeInviteCount: capacity.active, invitesRemaining: capacity.remaining };
+  }
   return apiFetch("/api/invites");
 }
 
