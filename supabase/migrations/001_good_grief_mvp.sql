@@ -57,10 +57,12 @@ alter table public.plans enable row level security;
 alter table public.trusted_people enable row level security;
 alter table public.vault_items enable row level security;
 
-create policy "profiles_owner_all" on public.profiles for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
-create policy "plans_owner_all" on public.plans for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
-create policy "trusted_people_owner_all" on public.trusted_people for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
-create policy "vault_items_owner_all" on public.vault_items for all using (auth.uid()=user_id) with check (auth.uid()=user_id);
+grant select, insert, update, delete on public.profiles, public.plans, public.trusted_people, public.vault_items to authenticated;
+
+create policy "profiles_owner_all" on public.profiles for all to authenticated using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+create policy "plans_owner_all" on public.plans for all to authenticated using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+create policy "trusted_people_owner_all" on public.trusted_people for all to authenticated using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
+create policy "vault_items_owner_all" on public.vault_items for all to authenticated using ((select auth.uid())=user_id) with check ((select auth.uid())=user_id);
 
 -- Trusted-person release is deliberately NOT represented as a permissive RLS policy.
 -- V1 activation should remain human-reviewed until identity/death verification is designed and audited.
