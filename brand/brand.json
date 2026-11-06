@@ -1,0 +1,24 @@
+{
+  "name": "Good Grief",
+  "tagline": "A little planning. A lot of love.",
+  "voice": [
+    "Warm and human",
+    "Optimistic, confident and gently irreverent",
+    "Never trivialise death or grief",
+    "Never imply sharing has happened without consent"
+  ],
+  "colors": {
+    "plum": "#292333",
+    "cream": "#FFF8EC",
+    "lilac": "#DCD2F0",
+    "coral": "#F07875",
+    "gold": "#E8AD58",
+    "secondary": "#6B6274"
+  },
+  "fonts": {
+    "body": "Arial, Helvetica, sans-serif",
+    "display": "Georgia, serif"
+  },
+  "websiteLogo": "/assets/good-grief-logo.png",
+  "websiteUrl": "https://www.getgoodgrief.co.uk"
+}
