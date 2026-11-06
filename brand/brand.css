@@ -1,0 +1,12 @@
+:root {
+  --gg-plum: #292333;
+  --gg-cream: #FFF8EC;
+  --gg-lilac: #DCD2F0;
+  --gg-coral: #F07875;
+  --gg-gold: #E8AD58;
+  --gg-secondary: #6B6274;
+}
+/* Scoped defaults; adopt in the deployed website after source reconciliation. */
+.gg-surface { background: var(--gg-cream); color: var(--gg-plum); }
+.gg-button { background: var(--gg-coral); color: var(--gg-plum); border-radius: 8px; border: 0; padding: 14px 22px; font-weight: 700; }
+.gg-heading { font-family: Georgia, serif; letter-spacing: -.03em; }
